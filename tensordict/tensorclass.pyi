@@ -21,6 +21,7 @@ from typing import (
     Sequence,
     Tuple,
     Type,
+    TypeAlias,
     TYPE_CHECKING,
     TypeVar,
 )
@@ -71,13 +72,35 @@ class _BEST_ATTEMPT_INPLACE:
     def __bool__(self) -> bool: ...
 
 BEST_ATTEMPT_INPLACE: Incomplete
-from typing import TypeAlias
-
 CompatibleType: TypeAlias = Tensor
 
 T = TypeVar("T", bound="TensorDictBase")
 # Use Any for methods that don't have T in their parameters but return T
 T_Any = TypeVar("T_Any", bound="TensorDictBase")
+
+# Unlike TensorDictBase.__getitem__, TensorClass.__getitem__ is exclusively a
+# batch-indexing operation. Named fields are retrieved through attributes or
+# get(), and the runtime rejects strings and all-string tuples.
+TensorClassIndex: TypeAlias = (
+    int
+    | slice
+    | types.EllipsisType
+    | Tensor
+    | range
+    | list[int]
+    | list[bool]
+    | tuple[
+        int
+        | slice
+        | types.EllipsisType
+        | Tensor
+        | range
+        | list[int]
+        | list[bool]
+        | None,
+        ...,
+    ]
+)
 
 if TYPE_CHECKING:
     from typing import Self
@@ -131,9 +154,7 @@ class TensorClass:
     def __iter__(self) -> Generator: ...
     def __len__(self) -> int: ...
     def __contains__(self, key: NestedKey) -> bool: ...
-    def __getitem__(
-        self, index: IndexType
-    ) -> Self | Tensor | TensorCollection | Any: ...
+    def __getitem__(self, index: TensorClassIndex) -> Self: ...
     __getitems__ = __getitem__
 
     def __setitem__(self, index: IndexType, value: Any) -> None: ...
@@ -754,7 +775,7 @@ class TensorClass:
     @overload
     def view(self, *shape: int) -> Self: ...
     @overload
-    def view(self, dtype) -> Self: ...
+    def view(self, dtype: torch.dtype) -> Self: ...
     @overload
     def view(self, shape: torch.Size) -> Self: ...
     def view(
@@ -763,7 +784,7 @@ class TensorClass:
         size: Sequence[int] | torch.Size | None = None,
         batch_size: torch.Size | None = None,
     ) -> Self: ...
-    def transpose(self, dim0, dim1) -> Self: ...
+    def transpose(self, dim0: int, dim1: int) -> Self: ...
     def swapaxes(self, axis0: int, axis1: int) -> Self: ...
     def swapdims(self, dim0: int, dim1: int) -> Self: ...
     def flip(self, dims: int | tuple[int, ...]) -> Self: ...
@@ -823,8 +844,8 @@ class TensorClass:
         self, num_threads: int | None = None, inplace: bool = False
     ) -> Self: ...
     def pin_memory_(self, num_threads: int | str = 0) -> Self: ...
-    def cpu(self, **kwargs) -> Self: ...
-    def cuda(self, device: int | None = None, **kwargs) -> Self: ...
+    def cpu(self, **kwargs: Any) -> Self: ...
+    def cuda(self, device: int | None = None, **kwargs: Any) -> Self: ...
     @property
     def is_cuda(self) -> bool: ...
     @property
@@ -992,7 +1013,7 @@ class TensorClass:
     @overload
     def get(self, key: NestedKey, default: CompatibleType | Any) -> CompatibleType: ...
     @overload
-    def get(self, key: NestedKey, *args, **kwargs) -> CompatibleType: ...
+    def get(self, key: NestedKey, *args: Any, **kwargs: Any) -> CompatibleType: ...
     @overload
     def get(
         self,
@@ -1004,7 +1025,7 @@ class TensorClass:
         padding_side: str = "right",
         layout: torch.layout | None = None,
         padding_value: float | int | bool = 0.0,
-        **kwargs,
+        **kwargs: Any,
     ) -> CompatibleType: ...
     @overload
     def get_at(self, key: NestedKey, index: IndexType) -> CompatibleType: ...
@@ -1465,7 +1486,7 @@ class TensorClass:
     ) -> Self: ...
     def exclude(self, *keys: NestedKey, inplace: bool = False) -> Self: ...
     def to_tensordict(self, *, retain_none: bool | None = None) -> Self: ...
-    def clone(self, recurse: bool = True, **kwargs) -> Self: ...
+    def clone(self, recurse: bool = True, **kwargs: Any) -> Self: ...
     def copy(self) -> Self: ...
     def to_padded_tensor(
         self, padding: float = 0.0, mask_key: NestedKey | None = None
@@ -1642,7 +1663,7 @@ class TensorClass:
     @overload
     def to(
         self,
-        device: int | torch.device | None = ...,
+        device: DeviceType | None = ...,
         dtype: torch.dtype | None = ...,
         non_blocking: bool = ...,
         inplace: bool = False,

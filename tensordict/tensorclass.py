@@ -2260,7 +2260,7 @@ def _wrap_classmethod(td_cls, cls, func):
     return wrapped_func
 
 
-def _getitem(self, item: NestedKey) -> Tensor | TensorCollection | Any:
+def _getitem(self, item: IndexType) -> Self:
     """Retrieve the class object at the given index. Indexing will happen for nested tensors as well.
 
     Args:
